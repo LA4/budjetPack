@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: budjetpack-backend-service
+  namespace: budjetpack
+spec:
+  type: ClusterIP # accessible uniquement DANS le cluster
+  selector:
+    app: budjetpack-backend # matche les pods du Deployment
+  ports:
+    - port: 3000 # ce qu'on appelle dans le cluster
+      targetPort: 3000 # ce qu'écoute le pod
