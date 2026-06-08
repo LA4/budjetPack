@@ -1,0 +1,14 @@
+<main>
+  <h1>BudjetPack</h1>
+
+  <button (click)="checkHealth()" [disabled]="loading()">
+    {{ loading() ? 'Vérification...' : 'Health Check' }}
+  </button>
+
+  @if (healthStatus()) {
+    <p class="status ok">✔ {{ healthStatus() }}</p>
+  }
+  @if (error()) {
+    <p class="status error">✖ {{ error() }}</p>
+  }
+</main>
