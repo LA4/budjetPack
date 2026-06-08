@@ -2,8 +2,8 @@
 
 # --- VOS CHEMINS ABSOLUS ---
 # (Remplacés avec des "/" pour que Git Bash fonctionne parfaitement)
-CHEMIN_FRONT="C:/Users/ninag/Desktop/budgetpack/budjetPack/front-budjetPack/deployment/k8s/api-deployment.yaml"
-CHEMIN_BACK="C:/Users/ninag/Desktop/budgetpack/budjetPack/back-budjetPack/deployment/k8s/api-deployment.yaml"
+CHEMIN_FRONT="./front-budjetPack/deployment/k8s/api-deployment.yaml"
+CHEMIN_BACK="./back-budjetPack/deployment/k8s/api-deployment.yaml"
 
 echo "🚀 Lancement de l'automatisation BudjetPack..."
 
