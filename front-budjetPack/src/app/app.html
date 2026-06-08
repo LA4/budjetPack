@@ -1,14 +1,497 @@
-<main>
-  <h1>BudjetPack</h1>
+<div class="app-container">
+  
+  <!-- Material Navigation Drawer (Sidebar) -->
+  <aside class="nav-drawer">
+    <div class="drawer-header">
+      <div class="brand-logo-wrapper">
+        <span class="material-symbols-outlined brand-icon wallet-icon">account_balance_wallet</span>
+        <span class="material-symbols-outlined brand-icon jetpack-icon">rocket_launch</span>
+      </div>
+      <h1 class="drawer-title">BudjetPack</h1>
+    </div>
 
-  <button (click)="checkHealth()" [disabled]="loading()">
-    {{ loading() ? 'Vérification...' : 'Health Check' }}
-  </button>
+    <nav class="drawer-menu">
+      <button 
+        (click)="currentTab.set('dashboard')" 
+        [class.active]="currentTab() === 'dashboard'" 
+        class="menu-item"
+      >
+        <span class="material-symbols-outlined">dashboard</span>
+        <span class="menu-label">Tableau de bord</span>
+      </button>
 
-  @if (healthStatus()) {
-    <p class="status ok">✔ {{ healthStatus() }}</p>
-  }
-  @if (error()) {
-    <p class="status error">✖ {{ error() }}</p>
-  }
-</main>
+      <button 
+        (click)="currentTab.set('expenses')" 
+        [class.active]="currentTab() === 'expenses'" 
+        class="menu-item"
+      >
+        <span class="material-symbols-outlined">receipt_long</span>
+        <span class="menu-label">Mes Dépenses</span>
+      </button>
+
+      <button 
+        (click)="currentTab.set('categories')" 
+        [class.active]="currentTab() === 'categories'" 
+        class="menu-item"
+      >
+        <span class="material-symbols-outlined">category</span>
+        <span class="menu-label">Catégories</span>
+      </button>
+    </nav>
+
+    <!-- Footer of the Sidebar -->
+    <div class="drawer-footer">
+      <div class="health-card">
+        <button (click)="checkHealth()" [disabled]="loading()" class="btn-health-check">
+          <span class="material-symbols-outlined sm-icon">dns</span>
+          <span>Vérifier API</span>
+        </button>
+        @if (healthStatus()) {
+          <p class="health-status ok">
+            <span class="material-symbols-outlined text-ok">check_circle</span>
+            <span>API en ligne</span>
+          </p>
+        }
+        @if (error()) {
+          <p class="health-status error">
+            <span class="material-symbols-outlined text-error">error</span>
+            <span>API hors ligne</span>
+          </p>
+        }
+      </div>
+      <div class="version-info">v2.0.0 — Material Design</div>
+    </div>
+  </aside>
+
+  <!-- Main Work Area -->
+  <main class="main-content">
+    
+    <!-- Top App Bar -->
+    <header class="top-app-bar">
+      <div class="top-app-bar-start">
+        <h2 class="view-title">
+          @if (currentTab() === 'dashboard') { Tableau de bord }
+          @if (currentTab() === 'expenses') { Gestion des Dépenses }
+          @if (currentTab() === 'categories') { Mes Catégories }
+        </h2>
+      </div>
+      
+      <!-- Quick budget overview in top bar -->
+      <div class="top-app-bar-end">
+        <div class="quick-budget-chip">
+          <span class="material-symbols-outlined text-muted">savings</span>
+          <span class="label">Budget : </span>
+          <span class="value">{{ monthlyBudget() }} €</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Content Scroller -->
+    <div class="content-body">
+
+      <!-- ================= TAB: DASHBOARD ================= -->
+      @if (currentTab() === 'dashboard') {
+        <div class="tab-content fade-in">
+          
+          <!-- Summary Cards Grid -->
+          <div class="stats-grid">
+            
+            <!-- Card 1: Budget Total -->
+            <div class="m3-card filled">
+              <div class="card-icon-wrapper primary-bg">
+                <span class="material-symbols-outlined">credit_card</span>
+              </div>
+              <div class="card-content">
+                <span class="card-label">Budget Global</span>
+                <span class="card-value">{{ monthlyBudget() | currency:'EUR':'symbol':'1.2-2':'fr' }}</span>
+                <span class="card-subtext">Limite mensuelle définie</span>
+              </div>
+            </div>
+
+            <!-- Card 2: Spent -->
+            <div class="m3-card filled">
+              <div class="card-icon-wrapper warning-bg">
+                <span class="material-symbols-outlined">trending_up</span>
+              </div>
+              <div class="card-content">
+                <span class="card-label">Total Dépensé</span>
+                <span class="card-value text-spent">{{ totalExpenses() | currency:'EUR':'symbol':'1.2-2':'fr' }}</span>
+                <span class="card-subtext">{{ expenses().length }} dépenses enregistrées</span>
+              </div>
+            </div>
+
+            <!-- Card 3: Remaining -->
+            <div class="m3-card" [ngClass]="{'success-card': remainingBudget() >= 0, 'error-card': remainingBudget() < 0}">
+              <div class="card-icon-wrapper" [ngClass]="{'success-bg': remainingBudget() >= 0, 'error-bg': remainingBudget() < 0}">
+                <span class="material-symbols-outlined">
+                  {{ remainingBudget() >= 0 ? 'check_circle' : 'warning' }}
+                </span>
+              </div>
+              <div class="card-content">
+                <span class="card-label">Solde Restant</span>
+                <span class="card-value">{{ remainingBudget() | currency:'EUR':'symbol':'1.2-2':'fr' }}</span>
+                <span class="card-subtext">
+                  {{ remainingBudget() >= 0 ? 'Dans les limites' : 'Budget dépassé !' }}
+                </span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Progress and Visual distribution Section -->
+          <div class="dashboard-details-grid">
+            
+            <!-- Progress gauge card -->
+            <div class="m3-card elevated progress-card">
+              <h3 class="card-title">Progression de l'utilisation</h3>
+              
+              <div class="progress-bar-container">
+                <div class="progress-bar-track">
+                  <div 
+                    class="progress-bar-fill" 
+                    [style.width.%]="budgetUsagePercentage()"
+                    [ngClass]="{
+                      'bg-success': budgetUsagePercentage() <= 75,
+                      'bg-warning': budgetUsagePercentage() > 75 && budgetUsagePercentage() <= 90,
+                      'bg-danger': budgetUsagePercentage() > 90
+                    }"
+                  ></div>
+                </div>
+                <div class="progress-info">
+                  <span class="percent-label">{{ budgetUsagePercentage() | number:'1.0-0' }}% consommés</span>
+                  <span class="limit-label">{{ totalExpenses() | number:'1.0-2' }} € sur {{ monthlyBudget() }} €</span>
+                </div>
+              </div>
+
+              <!-- Quick input to change budget -->
+              <div class="quick-edit-budget">
+                <span class="material-symbols-outlined">edit</span>
+                <label for="budget-editor">Ajuster la limite du budget :</label>
+                <div class="input-with-suffix">
+                  <input 
+                    id="budget-editor"
+                    type="number" 
+                    [(ngModel)]="monthlyBudget" 
+                    class="m3-input-simple"
+                    min="0"
+                  />
+                  <span class="suffix">€</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Distribution Chart Card -->
+            <div class="m3-card elevated distribution-card">
+              <h3 class="card-title">Répartition des Dépenses</h3>
+              
+              @if (categoryStats().length === 0) {
+                <div class="empty-state">
+                  <span class="material-symbols-outlined empty-icon">pie_chart</span>
+                  <p>Aucune dépense enregistrée pour afficher le graphique.</p>
+                </div>
+              } @else {
+                <div class="m3-stats-list">
+                  @for (stat of categoryStats(); track stat.category.id) {
+                    <div class="m3-stat-item">
+                      <div class="stat-header">
+                        <div class="category-chip" [style.background-color]="stat.category.color + '18'" [style.color]="stat.category.color">
+                          <span class="emoji">{{ stat.category.icon }}</span>
+                          <span class="name">{{ stat.category.name }}</span>
+                        </div>
+                        <span class="amount">{{ stat.amount | currency:'EUR':'symbol':'1.2-2':'fr' }}</span>
+                      </div>
+                      <div class="stat-track">
+                        <div class="stat-fill" [style.width.%]="stat.percentage" [style.background-color]="stat.category.color"></div>
+                      </div>
+                      <div class="stat-meta">
+                        <span>{{ stat.percentage | number:'1.0-1' }}% des dépenses</span>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+
+          </div>
+
+          <!-- Bottom: Recent Transactions -->
+          <div class="m3-card elevated recent-expenses-card">
+            <div class="card-header-actions">
+              <h3 class="card-title">Transactions Récentes</h3>
+              <button (click)="currentTab.set('expenses')" class="m3-btn text-btn">Voir tout</button>
+            </div>
+
+            @if (expenses().length === 0) {
+              <div class="empty-state">
+                <span class="material-symbols-outlined empty-icon">receipt</span>
+                <p>Aucune transaction récente.</p>
+              </div>
+            } @else {
+              <div class="m3-list">
+                @for (exp of expenses().slice(0, 4); track exp.id) {
+                  @let cat = getCategory(exp.category);
+                  <div class="m3-list-item">
+                    <div class="item-start">
+                      <div class="avatar" [style.background-color]="(cat?.color || '#9ca3af') + '20'" [style.color]="cat?.color || '#9ca3af'">
+                        <span>{{ cat?.icon || '💸' }}</span>
+                      </div>
+                      <div class="item-text">
+                        <span class="title">{{ exp.title }}</span>
+                        <span class="subtitle">{{ exp.date | date:'dd MMMM yyyy':'':'fr' }}</span>
+                      </div>
+                    </div>
+                    <div class="item-end">
+                      <span class="amount">-{{ exp.amount | currency:'EUR':'symbol':'1.2-2':'fr' }}</span>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+        </div>
+      }
+
+      <!-- ================= TAB: EXPENSES ================= -->
+      @if (currentTab() === 'expenses') {
+        <div class="tab-content fade-in">
+          
+          <div class="expenses-tab-layout">
+            
+            <!-- Left Side: Form -->
+            <div class="m3-card elevated form-card">
+              <h3 class="card-title">Ajouter une dépense</h3>
+              
+              <form (submit)="$event.preventDefault(); addExpense();" class="m3-form">
+                
+                <div class="m3-field">
+                  <label for="exp-title" class="m3-label">Description de l'achat</label>
+                  <input 
+                    id="exp-title"
+                    type="text" 
+                    [(ngModel)]="newTitle" 
+                    name="title"
+                    placeholder="Ex: Supermarché, Cinéma..." 
+                    class="m3-input"
+                    required
+                  />
+                </div>
+
+                <div class="form-row-2">
+                  <div class="m3-field">
+                    <label for="exp-amount" class="m3-label">Montant (€)</label>
+                    <input 
+                      id="exp-amount"
+                      type="number" 
+                      [(ngModel)]="newAmount" 
+                      name="amount"
+                      placeholder="0.00" 
+                      step="0.01"
+                      min="0.01"
+                      class="m3-input"
+                      required
+                    />
+                  </div>
+
+                  <div class="m3-field">
+                    <label for="exp-date" class="m3-label">Date d'achat</label>
+                    <input 
+                      id="exp-date"
+                      type="date" 
+                      [(ngModel)]="newDate" 
+                      name="date"
+                      class="m3-input"
+                    />
+                  </div>
+                </div>
+
+                <div class="m3-field">
+                  <label for="exp-category" class="m3-label">Catégorie de dépense</label>
+                  <select 
+                    id="exp-category"
+                    [(ngModel)]="newCategory" 
+                    name="category"
+                    class="m3-select"
+                  >
+                    @for (cat of categories(); track cat.id) {
+                      <option [value]="cat.id">{{ cat.icon }} {{ cat.name }}</option>
+                    }
+                  </select>
+                </div>
+
+                <button 
+                  type="submit" 
+                  [disabled]="!newTitle().trim() || !newAmount() || newAmount()! <= 0" 
+                  class="m3-btn filled-btn"
+                >
+                  <span class="material-symbols-outlined">add</span>
+                  <span>Enregistrer la dépense</span>
+                </button>
+
+              </form>
+            </div>
+
+            <!-- Right Side: List -->
+            <div class="m3-card elevated list-card">
+              <h3 class="card-title">Historique des transactions</h3>
+
+              @if (expenses().length === 0) {
+                <div class="empty-state">
+                  <span class="material-symbols-outlined empty-icon">payments</span>
+                  <p>Aucune dépense enregistrée. Remplissez le formulaire à gauche pour commencer.</p>
+                </div>
+              } @else {
+                <div class="table-container">
+                  <table class="m3-table">
+                    <thead>
+                      <tr>
+                        <th>Désignation</th>
+                        <th>Catégorie</th>
+                        <th>Date</th>
+                        <th class="text-right">Montant</th>
+                        <th class="text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (exp of expenses(); track exp.id) {
+                        @let cat = getCategory(exp.category);
+                        <tr class="m3-table-row">
+                          <td class="table-title-cell">{{ exp.title }}</td>
+                          <td>
+                            @if (cat) {
+                              <span class="category-chip" [style.background-color]="cat.color + '18'" [style.color]="cat.color">
+                                <span class="emoji">{{ cat.icon }}</span>
+                                <span class="name">{{ cat.name }}</span>
+                              </span>
+                            } @else {
+                              <span class="category-chip unknown">
+                                <span class="emoji">❓</span>
+                                <span class="name">Inconnue</span>
+                              </span>
+                            }
+                          </td>
+                          <td class="date-cell">{{ exp.date | date:'dd MMM yyyy':'':'fr' }}</td>
+                          <td class="amount-cell text-right">-{{ exp.amount | currency:'EUR':'symbol':'1.2-2':'fr' }}</td>
+                          <td class="text-center">
+                            <button (click)="deleteExpense(exp.id)" class="icon-action-btn delete" title="Supprimer">
+                              <span class="material-symbols-outlined">delete</span>
+                            </button>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
+
+          </div>
+
+        </div>
+      }
+
+      <!-- ================= TAB: CATEGORIES ================= -->
+      @if (currentTab() === 'categories') {
+        <div class="tab-content fade-in">
+          
+          <div class="categories-tab-layout">
+            
+            <!-- Left: Add form -->
+            <div class="m3-card elevated add-cat-card">
+              <h3 class="card-title">Nouvelle Catégorie</h3>
+              
+              <div class="m3-form">
+                <div class="m3-field">
+                  <label for="cat-name" class="m3-label">Nom de la catégorie</label>
+                  <input 
+                    id="cat-name"
+                    type="text" 
+                    [(ngModel)]="newCategoryName" 
+                    placeholder="Ex: Abonnements, Cadeaux..." 
+                    class="m3-input"
+                  />
+                </div>
+
+                <div class="form-row-2">
+                  <div class="m3-field">
+                    <label for="cat-icon" class="m3-label">Icône (Emoji)</label>
+                    <select id="cat-icon" [(ngModel)]="newCategoryIcon" class="m3-select">
+                      @for (icon of presetIcons; track icon) {
+                        <option [value]="icon">{{ icon }}</option>
+                      }
+                    </select>
+                  </div>
+
+                  <div class="m3-field">
+                    <label class="m3-label">Couleur</label>
+                    <div class="color-picker-wrapper">
+                      <input 
+                        type="color" 
+                        [(ngModel)]="newCategoryColor" 
+                        class="m3-color-swatch"
+                      />
+                      <span class="color-hex-label">{{ newCategoryColor() }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Color presets -->
+                <div class="color-presets">
+                  <span class="presets-title">Palettes recommandées :</span>
+                  <div class="presets-grid">
+                    @for (col of presetColors; track col) {
+                      <button 
+                        (click)="newCategoryColor.set(col)" 
+                        class="preset-color-btn" 
+                        [style.background-color]="col"
+                        [class.selected]="newCategoryColor() === col"
+                      ></button>
+                    }
+                  </div>
+                </div>
+
+                <button 
+                  (click)="addCategory()" 
+                  [disabled]="!newCategoryName().trim()" 
+                  class="m3-btn filled-btn"
+                >
+                  <span class="material-symbols-outlined">palette</span>
+                  <span>Créer la catégorie</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Right: List and delete -->
+            <div class="m3-card elevated list-cat-card">
+              <h3 class="card-title">Catégories existantes</h3>
+              <p class="section-desc">Ces catégories sont prêtes à être associées à vos dépenses.</p>
+
+              <div class="categories-list-grid">
+                @for (cat of categories(); track cat.id) {
+                  <div class="m3-category-card" [style.border-left-color]="cat.color">
+                    <div class="cat-card-start">
+                      <div class="cat-avatar" [style.background-color]="cat.color + '15'" [style.color]="cat.color">
+                        <span>{{ cat.icon }}</span>
+                      </div>
+                      <div class="cat-info">
+                        <span class="cat-name-txt">{{ cat.name }}</span>
+                        <span class="cat-id-txt">ID: {{ cat.id }}</span>
+                      </div>
+                    </div>
+                    <button (click)="deleteCategory(cat.id)" class="icon-action-btn delete" title="Supprimer la catégorie">
+                      <span class="material-symbols-outlined">delete</span>
+                    </button>
+                  </div>
+                }
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      }
+
+    </div>
+
+  </main>
+</div>
