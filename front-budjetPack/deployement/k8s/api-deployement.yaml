@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: budjetpack-frontend
+  namespace: budjetpack
+  labels:
+    app: budjetpack-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: budjetpack-frontend
+  template:
+    metadata:
+      labels:
+        app: budjetpack-frontend
+    spec:
+      containers:
+        - name: budjetpack-frontend
+          image: budjetpack-frontend:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          # envFrom:
+          #   - configMapRef:
+          #       name: budjetpack_frontend-config
+          #   - secretRef:
+          #       name: budjetpack_frontend-secrets

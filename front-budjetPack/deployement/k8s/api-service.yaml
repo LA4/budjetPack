@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: budjetpack-frontend-service
+  namespace: budjetpack
+spec:
+  type: ClusterIP # accessible uniquement DANS le cluster
+  selector:
+    app: budjetpack-frontend # matche les pods du Deployment
+  ports:
+    - port: 4200 # ce qu'on appelle dans le cluster
+      targetPort: 4200 # ce qu'écoute le pod
