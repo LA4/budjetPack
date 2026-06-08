@@ -76,30 +76,31 @@ export class App {
   presetIcons = ['🍎', '🍕', '🍔', '🚗', '🚇', '✈️', '🎮', '🍿', '🎵', '🏠', '💡', '💊', '👕', '🛍️', '🎁', '🎨', '📚', '💼', '💪', '🐕', '💸', '✨'];
   presetColors = ['#ff5a5f', '#00a699', '#fc642d', '#3b82f6', '#ec4899', '#8a2be2', '#10b981', '#f59e0b', '#ef4444', '#14b8a6', '#6366f1'];
 
+  private API_URL = 'http://localhost:3000';
+
   constructor() {
-    // Load from LocalStorage
-    const storedBudget = localStorage.getItem('budjetpack_budget');
-    if (storedBudget) this.monthlyBudget.set(parseFloat(storedBudget));
+    this.loadInitialData();
+  }
 
-    const storedCategories = localStorage.getItem('budjetpack_categories');
-    if (storedCategories) {
-      try { this.categories.set(JSON.parse(storedCategories)); } catch (e) {}
-    }
-
-    const storedExpenses = localStorage.getItem('budjetpack_expenses');
-    if (storedExpenses) {
-      try { this.expenses.set(JSON.parse(storedExpenses)); } catch (e) {}
-    }
-
-    // Effect to persist changes
-    effect(() => {
-      localStorage.setItem('budjetpack_budget', this.monthlyBudget().toString());
+  loadInitialData(): void {
+    // Get budget
+    this.http.get<{ id: number; limit: number }>(`${this.API_URL}/budget`).subscribe({
+      next: (res) => this.monthlyBudget.set(res.limit),
+      error: () => console.warn('Impossible de charger le budget, utilisation de la valeur par défaut.')
     });
-    effect(() => {
-      localStorage.setItem('budjetpack_categories', JSON.stringify(this.categories()));
+
+    // Get categories
+    this.http.get<Category[]>(`${this.API_URL}/categories`).subscribe({
+      next: (res) => {
+        if (res.length > 0) this.categories.set(res);
+      },
+      error: () => console.warn('Impossible de charger les catégories, utilisation des valeurs par défaut.')
     });
-    effect(() => {
-      localStorage.setItem('budjetpack_expenses', JSON.stringify(this.expenses()));
+
+    // Get expenses
+    this.http.get<Expense[]>(`${this.API_URL}/expenses`).subscribe({
+      next: (res) => this.expenses.set(res),
+      error: () => console.warn('Impossible de charger les dépenses, utilisation des valeurs par défaut.')
     });
   }
 
@@ -157,6 +158,14 @@ export class App {
   });
 
   // Action methods
+  saveBudgetBackend(): void {
+    const limit = this.monthlyBudget();
+    if (limit < 0) return;
+    this.http.post<{ id: number; limit: number }>(`${this.API_URL}/budget`, { limit }).subscribe({
+      error: () => console.error('Erreur lors de la sauvegarde du budget.')
+    });
+  }
+
   addExpense(): void {
     const title = this.newTitle().trim();
     const amount = this.newAmount();
@@ -165,23 +174,37 @@ export class App {
 
     if (!title || amount === null || amount <= 0) return;
 
-    const newExp: Expense = {
-      id: Date.now().toString(),
+    const body = {
       title,
       amount,
       category,
       date: date || new Date().toISOString().split('T')[0]
     };
 
-    this.expenses.update(exps => [newExp, ...exps]);
-
-    // Reset inputs
-    this.newTitle.set('');
-    this.newAmount.set(null);
+    this.http.post<Expense>(`${this.API_URL}/expenses`, body).subscribe({
+      next: (savedExp) => {
+        this.expenses.update(exps => [savedExp, ...exps]);
+        // Reset inputs
+        this.newTitle.set('');
+        this.newAmount.set(null);
+      },
+      error: (err) => {
+        alert('Erreur lors de la création de la dépense.');
+        console.error(err);
+      }
+    });
   }
 
   deleteExpense(id: string): void {
-    this.expenses.update(exps => exps.filter(e => e.id !== id));
+    this.http.delete(`${this.API_URL}/expenses/${id}`).subscribe({
+      next: () => {
+        this.expenses.update(exps => exps.filter(e => e.id !== id));
+      },
+      error: (err) => {
+        alert('Erreur lors de la suppression de la dépense.');
+        console.error(err);
+      }
+    });
   }
 
   addCategory(): void {
@@ -191,17 +214,22 @@ export class App {
 
     if (!name) return;
 
-    const id = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Date.now().toString().slice(-4);
-    const newCat: Category = { id, name, icon, color };
+    const body = { name, icon, color };
 
-    this.categories.update(cats => [...cats, newCat]);
-    
-    // Automatically select the new category
-    this.newCategory.set(id);
-
-    // Reset form
-    this.newCategoryName.set('');
-    this.showAddCategoryForm.set(false);
+    this.http.post<Category>(`${this.API_URL}/categories`, body).subscribe({
+      next: (savedCat) => {
+        this.categories.update(cats => [...cats, savedCat]);
+        // Automatically select the new category
+        this.newCategory.set(savedCat.id);
+        // Reset form
+        this.newCategoryName.set('');
+        this.showAddCategoryForm.set(false);
+      },
+      error: (err) => {
+        alert('Erreur lors de la création de la catégorie.');
+        console.error(err);
+      }
+    });
   }
 
   deleteCategory(catId: string): void {
@@ -211,10 +239,19 @@ export class App {
       alert("Impossible de supprimer cette catégorie car des dépenses y sont associées.");
       return;
     }
-    this.categories.update(cats => cats.filter(c => c.id !== catId));
-    if (this.newCategory() === catId) {
-      this.newCategory.set(this.categories()[0]?.id || '');
-    }
+    
+    this.http.delete(`${this.API_URL}/categories/${catId}`).subscribe({
+      next: () => {
+        this.categories.update(cats => cats.filter(c => c.id !== catId));
+        if (this.newCategory() === catId) {
+          this.newCategory.set(this.categories()[0]?.id || '');
+        }
+      },
+      error: (err) => {
+        alert('Erreur lors de la suppression de la catégorie.');
+        console.error(err);
+      }
+    });
   }
 
   // Health check methods
@@ -223,7 +260,7 @@ export class App {
     this.healthStatus.set(null);
     this.error.set(null);
 
-    this.http.get<{ status: string; timestamp: string }>('http://localhost:3000/health').subscribe({
+    this.http.get<{ status: string; timestamp: string }>(`${this.API_URL}/health`).subscribe({
       next: (res) => {
         this.healthStatus.set(`${res.status} — ${res.timestamp}`);
         this.loading.set(false);

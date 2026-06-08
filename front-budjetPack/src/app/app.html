@@ -172,6 +172,8 @@
                     id="budget-editor"
                     type="number" 
                     [(ngModel)]="monthlyBudget" 
+                    (change)="saveBudgetBackend()"
+                    (blur)="saveBudgetBackend()"
                     class="m3-input-simple"
                     min="0"
                   />
