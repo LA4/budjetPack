@@ -9,3 +9,8 @@ RUN npm ci
 COPY . .
 RUN npm run build -- --configuration production
 
+# Stage 2 — serve
+FROM nginx:alpine
+COPY --from=builder /app/dist/front-budjetPack/browser /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
