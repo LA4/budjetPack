@@ -8,5 +8,5 @@ spec:
   selector:
     app: budjetpack-frontend # matche les pods du Deployment
   ports:
-    - port: 4200 # ce qu'on appelle dans le cluster
-      targetPort: 4200 # ce qu'écoute le pod
+    - port: 80 # ce qu'on appelle dans le cluster
+      targetPort: 80 # ce qu'écoute le pod
