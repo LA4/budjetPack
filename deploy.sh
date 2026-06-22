@@ -80,3 +80,11 @@ kubectl rollout restart deployment budjetpack-backend -n "$NAMESPACE"
 echo "✅ Backend redémarré."
 
 echo "🎉 Tout est prêt ! L'environnement BudjetPack est à jour."
+
+# --- 5. Lancement de l'environnement---
+echo "🚀 Lancement de l'environnement..."
+minikube start
+minikube tunnel
+kubectl get httpRoute -A
+minikube dashboard
+echo "🌐 Accédez à l'interface BudjetPack via le dashboard Minikube."
