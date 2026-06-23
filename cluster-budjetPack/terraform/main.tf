@@ -1,4 +1,4 @@
-# Suffixe aléatoire unique, figé tant que rg_name/location ne changent pas
+# Suffixe aléatoire unique
 resource "random_string" "suffix" {
   length  = 4
   special = false
@@ -11,7 +11,6 @@ resource "random_string" "suffix" {
 }
 
 locals {
-  # ex: "budjetpacka3f2" — utilisé partout pour garantir la cohérence
   suffix = "${var.app_name}${random_string.suffix.result}"
 }
 
@@ -22,7 +21,6 @@ resource "azurerm_resource_group" "rg" {
 }
 
 # 2. Azure Container Registry
-# Nom : "acrbudjetpacka3f2" (max 50 car, alphanumérique uniquement)
 resource "azurerm_container_registry" "acr" {
   name                = "acr${local.suffix}"
   resource_group_name = azurerm_resource_group.rg.name
@@ -32,7 +30,6 @@ resource "azurerm_container_registry" "acr" {
 }
 
 # 3. Storage Account
-# Nom : "storbudjetpacka3f2" (max 24 car, substr pour sécuriser)
 resource "azurerm_storage_account" "storage" {
   name                     = "stor${substr(local.suffix, 0, 20)}"
   resource_group_name      = azurerm_resource_group.rg.name
@@ -48,9 +45,56 @@ resource "azurerm_container_app_environment" "env" {
   location            = azurerm_resource_group.rg.location
 }
 
-# 5. Azure Container App
-resource "azurerm_container_app" "app" {
-  name                         = "app-${local.suffix}"
+# 5. Container App — Backend (NestJS, port 3000)
+resource "azurerm_container_app" "backend" {
+  name                         = "backend-${local.suffix}"
+  resource_group_name          = azurerm_resource_group.rg.name
+  container_app_environment_id = azurerm_container_app_environment.env.id
+  revision_mode                = "Single"
+
+  ingress {
+    external_enabled = true
+    target_port      = 3000
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
+  }
+
+  registry {
+    server               = azurerm_container_registry.acr.login_server
+    username             = azurerm_container_registry.acr.admin_username
+    password_secret_name = "acr-password"
+  }
+
+  secret {
+    name  = "acr-password"
+    value = azurerm_container_registry.acr.admin_password
+  }
+
+  secret {
+    name  = "database-url"
+    value = "postgresql://adminbudjet:${var.db_admin_password}@psql-${local.suffix}.postgres.database.azure.com:5432/tasks?sslmode=require"
+  }
+
+  template {
+    container {
+      name   = "backend"
+      image  = "${azurerm_container_registry.acr.login_server}/budjetpack-backend:v1"
+      cpu    = 0.25
+      memory = "0.5Gi"
+
+      env {
+        name        = "DATABASE_URL"
+        secret_name = "database-url"
+      }
+    }
+  }
+}
+
+# 6. Container App — Frontend (port 80)
+resource "azurerm_container_app" "frontend" {
+  name                         = "frontend-${local.suffix}"
   resource_group_name          = azurerm_resource_group.rg.name
   container_app_environment_id = azurerm_container_app_environment.env.id
   revision_mode                = "Single"
@@ -64,7 +108,6 @@ resource "azurerm_container_app" "app" {
     }
   }
 
-  # Registry gardée prête pour quand votre image sera disponible
   registry {
     server               = azurerm_container_registry.acr.login_server
     username             = azurerm_container_registry.acr.admin_username
@@ -78,22 +121,27 @@ resource "azurerm_container_app" "app" {
 
   template {
     container {
-      name   = var.app_name
-      image  = var.container_image  # image publique pour l'instant
+      name   = "frontend"
+      image  = "${azurerm_container_registry.acr.login_server}/budjetpack-frontend:v1"
       cpu    = 0.25
       memory = "0.5Gi"
+
+      env {
+        name  = "API_URL"
+        value = "https://${azurerm_container_app.backend.ingress[0].fqdn}"
+      }
     }
   }
 }
 
-# 6. PostgreSQL Flexible Server
+# 7. PostgreSQL Flexible Server
 resource "azurerm_postgresql_flexible_server" "db" {
   name                   = "psql-${local.suffix}"
   resource_group_name    = azurerm_resource_group.rg.name
   location               = azurerm_resource_group.rg.location
   version                = "16"
   administrator_login    = "adminbudjet"
-  administrator_password = var.db_password
+  administrator_password = var.db_admin_password
   zone                   = "1"
 
   sku_name   = "B_Standard_B1ms"
@@ -103,7 +151,7 @@ resource "azurerm_postgresql_flexible_server" "db" {
   geo_redundant_backup_enabled = false
 }
 
-# 7. Base de données
+# 8. Base de données
 resource "azurerm_postgresql_flexible_server_database" "db" {
   name      = "tasks"
   server_id = azurerm_postgresql_flexible_server.db.id
@@ -111,10 +159,11 @@ resource "azurerm_postgresql_flexible_server_database" "db" {
   charset   = "utf8"
 }
 
-# 8. Firewall : autorise uniquement les services Azure (Container App)
+# 9. Firewall : autorise les services Azure
 resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_azure" {
   name             = "allow-azure-services"
   server_id        = azurerm_postgresql_flexible_server.db.id
   start_ip_address = "0.0.0.0"
   end_ip_address   = "0.0.0.0"
 }
+ 

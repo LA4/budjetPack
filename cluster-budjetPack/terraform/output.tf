@@ -13,5 +13,5 @@ output "storage_account_name" {
 
 output "container_app_url" {
   description = "URL publique de votre application"
-  value       = "https://${azurerm_container_app.app.ingress[0].fqdn}"
+  value       = "https://${azurerm_container_app.frontend.ingress[0].fqdn}"
 }

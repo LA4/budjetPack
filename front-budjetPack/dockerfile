@@ -4,13 +4,27 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm ci && npm cache clean --force
 
 COPY . .
 RUN npm run build -- --configuration production
 
 # Stage 2 — serve
 FROM nginx:alpine
+
+# 1. Copie du build Angular (On garde votre chemin d'origine)
 COPY --from=builder /app/dist/front-budjetPack/browser /usr/share/nginx/html
+
+# 2. Copie du script entrypoint.sh depuis le dossier local vers le conteneur
+COPY entrypoint.sh /entrypoint.sh
+    
+# 3. Rendre le script exécutable
+RUN chmod +x /entrypoint.sh
+
 EXPOSE 80
+
+# 4. Définir le script comme point d'entrée obligatoire
+ENTRYPOINT ["/entrypoint.sh"]
+
+# 5. La commande CMD devient l'argument par défaut passé à exec "$@" à la fin du script
 CMD ["nginx", "-g", "daemon off;"]
