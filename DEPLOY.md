@@ -31,7 +31,12 @@ az containerapp show \
   --name backend-budjetpack \
   --resource-group rg-budjetpack \
   --query "properties.template.containers[0].env"
-```
+
+az containerapp show \
+  --name frontend-budjetpack \
+  --resource-group rg-budjetpack \
+  --query "properties.template.containers[0].env"
+  ```
 
 ## Azure Container Apps — Révisions
 

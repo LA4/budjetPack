@@ -19,7 +19,7 @@ COPY --from=builder /app/dist/front-budjetPack/browser /usr/share/nginx/html
 COPY entrypoint.sh /entrypoint.sh
     
 # 3. Rendre le script exécutable
-RUN chmod +x /entrypoint.sh
+RUN sed -i 's/\r//' /entrypoint.sh && chmod +x /entrypoint.sh
 
 EXPOSE 80
 
