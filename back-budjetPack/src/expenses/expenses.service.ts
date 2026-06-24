@@ -26,7 +26,7 @@ export class ExpensesService implements OnModuleInit {
       
       const activeCategories = await this.categoriesService.findAll();
       if (activeCategories.length > 0) {
-        await this.expensesRepository.save(defaults);
+        await this.expensesRepository.save(defaults.map(d => this.expensesRepository.create(d)));
       }
     }
   }

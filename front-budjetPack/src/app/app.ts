@@ -76,7 +76,9 @@ export class App {
   presetIcons = ['🍎', '🍕', '🍔', '🚗', '🚇', '✈️', '🎮', '🍿', '🎵', '🏠', '💡', '💊', '👕', '🛍️', '🎁', '🎨', '📚', '💼', '💪', '🐕', '💸', '✨'];
   presetColors = ['#ff5a5f', '#00a699', '#fc642d', '#3b82f6', '#ec4899', '#8a2be2', '#10b981', '#f59e0b', '#ef4444', '#14b8a6', '#6366f1'];
 
-  private API_URL = 'http://localhost:3000';
+  get API_URL(): string {
+    return (window as any).ENV_API_URL || "http://localhost:3000";
+  }
 
   constructor() {
     this.loadInitialData();
@@ -121,7 +123,7 @@ export class App {
 
   categoryStats = computed(() => {
     const statsMap = new Map<string, { category: Category; amount: number; percentage: number }>();
-    
+
     // Initialize map with all categories
     this.categories().forEach(cat => {
       statsMap.set(cat.id, { category: cat, amount: 0, percentage: 0 });
@@ -239,7 +241,7 @@ export class App {
       alert("Impossible de supprimer cette catégorie car des dépenses y sont associées.");
       return;
     }
-    
+
     this.http.delete(`${this.API_URL}/categories/${catId}`).subscribe({
       next: () => {
         this.categories.update(cats => cats.filter(c => c.id !== catId));
