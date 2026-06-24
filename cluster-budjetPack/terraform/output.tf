@@ -11,7 +11,12 @@ output "storage_account_name" {
   value = azurerm_storage_account.storage.name
 }
 
-output "container_app_url" {
+output "front_app_url" {
   description = "URL publique de votre application"
   value       = "https://${azurerm_container_app.frontend.ingress[0].fqdn}"
+}
+
+output "back_app_url" {
+  description = "URL publique de votre application"
+  value       = "https://${azurerm_container_app.backend.ingress[0].fqdn}"
 }

@@ -1,28 +1,16 @@
-# Suffixe aléatoire unique
-resource "random_string" "suffix" {
-  length  = 4
-  special = false
-  upper   = false
-
-  keepers = {
-    rg_name  = var.rg_name
-    location = var.deploy_location
-  }
-}
-
 locals {
-  suffix = "${var.app_name}${random_string.suffix.result}"
+  app_name = var.app_name
 }
 
 # 1. Groupe de ressources
 resource "azurerm_resource_group" "rg" {
-  name     = var.rg_name
+  name     = var.rg_name # "rg-budjetpack"
   location = var.deploy_location
 }
 
 # 2. Azure Container Registry
 resource "azurerm_container_registry" "acr" {
-  name                = "acr${local.suffix}"
+  name                = "acrbudjetpack"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   sku                 = "Basic"
@@ -31,7 +19,7 @@ resource "azurerm_container_registry" "acr" {
 
 # 3. Storage Account
 resource "azurerm_storage_account" "storage" {
-  name                     = "stor${substr(local.suffix, 0, 20)}"
+  name                     = "storbudjetpackdata"
   resource_group_name      = azurerm_resource_group.rg.name
   location                 = azurerm_resource_group.rg.location
   account_tier             = "Standard"
@@ -40,21 +28,21 @@ resource "azurerm_storage_account" "storage" {
 
 # 4. Azure Container Apps Environment
 resource "azurerm_container_app_environment" "env" {
-  name                = "env-${local.suffix}"
+  name                = "env-${local.app_name}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
 }
 
 # 5. Container App — Backend (NestJS, port 3000)
 resource "azurerm_container_app" "backend" {
-  name                         = "backend-${local.suffix}"
+  name                         = "backend-${local.app_name}"
   resource_group_name          = azurerm_resource_group.rg.name
   container_app_environment_id = azurerm_container_app_environment.env.id
   revision_mode                = "Single"
 
   ingress {
     external_enabled = true
-    target_port      = 3000
+    target_port      = 80
     traffic_weight {
       percentage      = 100
       latest_revision = true
@@ -72,29 +60,19 @@ resource "azurerm_container_app" "backend" {
     value = azurerm_container_registry.acr.admin_password
   }
 
-  secret {
-    name  = "database-url"
-    value = "postgresql://adminbudjet:${var.db_admin_password}@psql-${local.suffix}.postgres.database.azure.com:5432/tasks?sslmode=require"
-  }
-
   template {
     container {
       name   = "backend"
-      image  = "${azurerm_container_registry.acr.login_server}/budjetpack-backend:v1"
+      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
       cpu    = 0.25
       memory = "0.5Gi"
-
-      env {
-        name        = "DATABASE_URL"
-        secret_name = "database-url"
-      }
     }
   }
 }
 
 # 6. Container App — Frontend (port 80)
 resource "azurerm_container_app" "frontend" {
-  name                         = "frontend-${local.suffix}"
+  name                         = "frontend-${local.app_name}"
   resource_group_name          = azurerm_resource_group.rg.name
   container_app_environment_id = azurerm_container_app_environment.env.id
   revision_mode                = "Single"
@@ -122,7 +100,7 @@ resource "azurerm_container_app" "frontend" {
   template {
     container {
       name   = "frontend"
-      image  = "${azurerm_container_registry.acr.login_server}/budjetpack-frontend:v1"
+      image  = var.frontend_image
       cpu    = 0.25
       memory = "0.5Gi"
 
@@ -136,7 +114,7 @@ resource "azurerm_container_app" "frontend" {
 
 # 7. PostgreSQL Flexible Server
 resource "azurerm_postgresql_flexible_server" "db" {
-  name                   = "psql-${local.suffix}"
+  name                   = "psql-${local.app_name}"
   resource_group_name    = azurerm_resource_group.rg.name
   location               = azurerm_resource_group.rg.location
   version                = "16"

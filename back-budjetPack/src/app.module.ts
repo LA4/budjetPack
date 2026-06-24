@@ -8,15 +8,17 @@ import { BudgetModule } from './budget/budget.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      url: process.env.DATABASE_URL || 'postgresql://app:app@localhost:5433/tasks',
-      autoLoadEntities: true,
-      synchronize: true, // Auto-create tables in dev environment
-    }),
-    CategoriesModule,
-    ExpensesModule,
-    BudgetModule,
+    // TypeOrmModule.forRoot({
+    //   type: 'postgres',
+    //   url:
+    //   process.env.DATABASE_URL || 'postgresql://app:app@localhost:5433/tasks',
+    //   autoLoadEntities: true,
+    //   synchronize: true,
+    //   ssl: { rejectUnauthorized: false },
+    // }),
+    // CategoriesModule,
+    // ExpensesModule,
+    // BudgetModule,
   ],
   controllers: [AppController],
   providers: [AppService],
