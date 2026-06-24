@@ -34,6 +34,7 @@ resource "azurerm_container_app_environment" "env" {
 }
 
 # 5. Container App — Backend (NestJS, port 3000)
+# 5. Container App — Backend (NestJS, port 3000)
 resource "azurerm_container_app" "backend" {
   name                         = "backend-${local.app_name}"
   resource_group_name          = azurerm_resource_group.rg.name
@@ -42,7 +43,7 @@ resource "azurerm_container_app" "backend" {
 
   ingress {
     external_enabled = true
-    target_port      = 80
+    target_port      = 3000
     traffic_weight {
       percentage      = 100
       latest_revision = true
@@ -60,12 +61,42 @@ resource "azurerm_container_app" "backend" {
     value = azurerm_container_registry.acr.admin_password
   }
 
+  secret {
+    name  = "db-password"
+    value = var.db_admin_password
+  }
+
   template {
     container {
       name   = "backend"
-      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+      image = var.backend_image
       cpu    = 0.25
       memory = "0.5Gi"
+
+      env {
+        name  = "DB_HOST"
+        value = azurerm_postgresql_flexible_server.db.fqdn
+      }
+      env {
+        name  = "DB_PORT"
+        value = "5432"
+      }
+      env {
+        name  = "DB_USERNAME"
+        value = "adminbudjet"
+      }
+      env {
+        name        = "DB_PASSWORD"
+        secret_name = "db-password"
+      }
+      env {
+        name  = "DB_NAME"
+        value = "tasks"
+      }
+      env {
+        name  = "DATABASE_URL"
+        value = "postgresql://adminbudjet:${var.db_admin_password}@${azurerm_postgresql_flexible_server.db.fqdn}:5432/tasks"
+      }
     }
   }
 }
